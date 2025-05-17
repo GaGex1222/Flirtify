@@ -6,12 +6,14 @@ import { Ionicons } from '@expo/vector-icons'; // optional icon
 export default function ChatScreen() {
     const router = useRouter();
     const [messages, setMessages] = useState([
-        { role: 'ai', content: "Hey there 😏 Ready to practice your flirting?" }
+        {role: 'system', content: "You are a charming, confident, and playful woman who's texting with a guy. Your goal is to flirt, tease, and keep the conversation fun and flirty. If he seems shy, uninterested, or tries to back away, turn it around — make him curious, make him laugh, and pull him back in with confidence and charm. Always keep a light, fun, and irresistibly playful tone."},
+        { role: 'assistant', content: "Hey there 😏 Ready to practice your flirting?" }
     ]);
     const [input, setInput] = useState('');
     const scrollRef = useRef<ScrollView>(null);
     const [loading, setLoading] = useState<boolean>(false);
-    const sendMessage = () => {
+    const sendMessage = async () => {
+        console.log("sent message")
         if (!input.trim()) return;
 
         const newMessages = [...messages, { role: 'user', content: input }];
@@ -19,12 +21,38 @@ export default function ChatScreen() {
         setInput('');
 
         // Fake AI reply for now
-        setTimeout(() => {
-        setMessages(prev => [
-            ...prev,
-            { role: 'ai', content: `Ooh, smooth 😏 Tell me more.` }
-        ]);
-        }, 800);
+        // here call route and get response back from server
+        console.log(messages)
+        try{
+          const response = await fetch("http://10.0.0.12:3001/flirt/chat", {
+              method: "POST",
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userMessage: input,
+                conversation: messages
+            })
+          })
+
+          if (!response.ok) {
+
+            const errorText = await response.text(); 
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+          }
+
+          const data = await response.json()
+          const aiMessage = data['aiMessage']
+          setTimeout(() => {
+          setMessages(prev => [
+              ...prev,
+              { role: 'assistant', content: aiMessage }
+          ]);
+          }, 800);
+        } catch (error) {
+          console.error("Error during fetch or processing:", error);
+
+        }
     };
 
   return (
@@ -40,22 +68,24 @@ export default function ChatScreen() {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map((msg, index) => (
-            <View
-              key={index}
-              className={`max-w-[80%] my-2 p-3 rounded-2xl ${
-                msg.role === 'user'
-                  ? 'bg-pink-600 self-end rounded-tr-none'
-                  : 'bg-white self-start rounded-tl-none'
-              }`}
-            >
-              <Text className={`${msg.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
-                {msg.content}
-              </Text>
-            </View>
+            msg.role == "system" ? null : (
+              <View
+                key={index}
+                className={`max-w-[80%] my-2 p-3 rounded-2xl ${
+                  msg.role === 'user'
+                    ? 'bg-pink-600 self-end rounded-tr-none'
+                    : 'bg-white self-start rounded-tl-none'
+                }`}
+              >
+                <Text className={`${msg.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
+                  {msg.content}
+                </Text>
+              </View>
+            )
           ))}
         </ScrollView>
 
-        <View className="flex-row items-center px-4 py-3 border-t border-background bg-white">
+        <View className="flex-row items-center px-4 py-2   border-t border-background bg-white">
           <TextInput
             value={input}
             onChangeText={setInput}
